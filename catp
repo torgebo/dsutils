@@ -19,20 +19,24 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from io import (
+    IOBase as _IOBase,
+)
+from os import (
+    PathLike as _PathLike,
+)
 from typing import (
     Any,
     Generator,
     Iterable,
     List,
 )
-from os import (
-    PathLike as _PathLike,
-)
+
 import logging as _logging
 import pickle as _pickle
 
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 _log = _logging.getLogger(__name__)
 
 
@@ -42,17 +46,24 @@ def pickle_iter_files(
         yield from pickle_iter(rfile)
 
 
+def _pickle_iter_buf(buf: _IOBase) -> List[Any]:
+    while True:
+        try:
+            el = _pickle.load(buf)
+        except EOFError:
+            return
+        else:
+            yield el
+
+
 def pickle_iter(ref_file: _PathLike) -> Generator[Any, None, None]:
     """Yield objects in pickle file."""
     _log.info("read from pickle file %s", ref_file)
-    with open(ref_file, "rb") as f:
-        while True:
-            try:
-                el = _pickle.load(f)
-            except EOFError:
-                return
-            else:
-                yield el
+    if isinstance(ref_file, _IOBase):
+        yield from _pickle_iter_buf(ref_file)
+    else:
+        with open(ref_file, "rb") as f:
+            yield from _pickle_iter_buf(f)
 
 
 def catp(files: Iterable[_PathLike], out_stream) -> List[Any]:
@@ -60,10 +71,12 @@ def catp(files: Iterable[_PathLike], out_stream) -> List[Any]:
     write them as a single List to `out_stream`. Returns collection.
     """
     collection = []
-    for num, item in enumerate(pickle_iter_files(files)):
+    num = 0
+    for item in pickle_iter_files(files):
         collection.append(item)
+        num += 1
     _pickle.dump(collection, out_stream)
-    _log.info("wrote output a total of %s objects to %s", num, out_stream)
+    _log.info("wrote a total of %s objects to %s", num, out_stream)
     return collection
 
 
