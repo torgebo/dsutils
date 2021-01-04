@@ -21,9 +21,7 @@ import subprocess
 import tempfile
 import unittest
 
-from load_script_module import get_module
-
-catp = get_module("catp")
+import catp
 
 
 def _write_pickles_native_objs(buffer):
@@ -60,7 +58,7 @@ class TestCatp(unittest.TestCase):
 
     def test_run_script_write_to_stdout(self):
         completion = subprocess.run(
-            ["catp", self._pickle_here.name],
+            ["catp.py", self._pickle_here.name],
             capture_output=True,
         )
 
