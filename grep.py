@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""`greppy` searches text streams using Python expressions.
+"""`grep.py` searches text streams using Python expressions.
 """
 import logging as _logging
+import os as _os
 import re as _re
 from fileinput import FileInput as _FileInput
 from pathlib import Path as _Path
 from pathlib import PosixPath as _PosixPath
-from typing import Any, Callable, Generator, List
+from typing import Any, Callable, Generator, List, Union
 
 __author__ = 'Torgeir Børresen'
 _log = _logging.getLogger(__name__)
@@ -33,16 +34,22 @@ def load_expression(expr: str) -> Callable[[str], Any]:
 
 
 def _generate_inputs(inputs: List[str], recursive: bool) -> Generator[
-        _Path, None, None]:
+        Union[_Path, FileNotFoundError], None, None]:
+    """Generate Path object for each member of `inputs`.
+
+    If the object does not exists returns 
+    """
     for input_exp in inputs:
         path = _Path(input_exp)
-        if recursive:
-            for p in path.iterdir():
-                if not p.is_file():
-                    continue
-                yield p
-        else:
+        if recursive and path.is_dir():
+            for root, __, files in _os.walk(path):
+                for fn in files:
+                    yield _Path(root) / fn
+        elif path.is_file():
             yield path
+        else:
+            return FileNotFoundError()
+            
 
 
 def pgrep(inputs: List[str], expr: str, recursive: bool):
